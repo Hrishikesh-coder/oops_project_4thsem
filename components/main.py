@@ -1,36 +1,48 @@
-import json
-import os
-from extractor import DocumentExtractor
-from parser import DataParser
+from extractor import DocumentProcessorFactory
+from normalization import (
+    BaseTextProcessor, 
+    WhitespaceRemover, 
+    PunctuationStripper, 
+    WordToDigitConverter
+)
 
-def process_document(pdf_path: str, output_dir: str = "output"):
-    """Runs the full pipeline on a single document."""
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+def run_pipeline(pdf_path: str):
+    print(f"--- Starting Processing for: {pdf_path} ---")
 
-    # Initialize Modules
-    extractor = DocumentExtractor()
-    parser = DataParser()
+    # ---------------------------------------------------------
+    # 1. FACTORY PATTERN IN ACTION
+    # We ask the factory for a processor. We don't care if it returns 
+    # the Digital or Scanned class, because both guarantee an 'extract_text' method.
+    # ---------------------------------------------------------
+    processor = DocumentProcessorFactory.get_processor(pdf_path)
+    raw_text = processor.extract_text(pdf_path)
+    
+    print(f"Extraction complete. Raw length: {len(raw_text)} chars.\n")
 
-    # Step 1: Extract Text
-    raw_text = extractor.process_pdf(pdf_path)
-
-    # Step 2: Parse and Classify
-    extracted_entities = parser.extract_and_classify(raw_text)
-
-    # Step 3: Format Output
-    output_filename = os.path.basename(pdf_path).replace('.pdf', '_results.json')
-    output_path = os.path.join(output_dir, output_filename)
-
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(extracted_entities, f, indent=4)
-
-    print(f"Success! Extracted {len(extracted_entities)} items. Saved to {output_path}")
-    return extracted_entities
+    # ---------------------------------------------------------
+    # 2. DECORATOR PATTERN IN ACTION
+    # Stacking our text processing behaviors dynamically.
+    # If a document doesn't need punctuation stripped, we simply omit that line.
+    # ---------------------------------------------------------
+    
+    # Start with the base component
+    text_pipeline = BaseTextProcessor()
+    
+    # Wrap it in decorators
+    text_pipeline = WhitespaceRemover(text_pipeline)
+    text_pipeline = WordToDigitConverter(text_pipeline)
+    text_pipeline = PunctuationStripper(text_pipeline)
+    
+    # Execute the chain
+    normalized_text = text_pipeline.process(raw_text)
+    
+    print("\n--- Pipeline Complete ---")
+    print("Preview of normalized text:")
+    print(normalized_text[:200] + "...")
+    
+    return normalized_text
 
 if __name__ == "__main__":
-    # Test it by putting a 'sample.pdf' in the same folder
-    if os.path.exists("sample.pdf"):
-        process_document("sample.pdf")
-    else:
-        print("Please place a 'sample.pdf' in the directory to run the test.")
+    # Test execution
+    # run_pipeline("sample.pdf")
+    pass
