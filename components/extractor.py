@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 import fitz  # PyMuPDF
 import pytesseract
 from pdf2image import convert_from_path
+from shutil import which
+from pytesseract.pytesseract import TesseractNotFoundError
 
 # ==========================================
 # INTERFACE (The Contract)
@@ -22,19 +24,41 @@ class DigitalPDFProcessor(IDocumentProcessor):
         try:
             doc = fitz.open(file_path)
             for page in doc:
-                text += page.get_text() + "\n"
+                page_text = str(page.get_text("text"))
+                text += page_text + "\n"
         except Exception as e:
             raise RuntimeError(f"Failed to read digital PDF: {e}")
         return text
 
 class ScannedPDFProcessor(IDocumentProcessor):
+    @staticmethod
+    def _validate_ocr_dependencies() -> None:
+        missing_tools = []
+        if which("tesseract") is None:
+            missing_tools.append("tesseract")
+        if which("pdftoppm") is None:
+            missing_tools.append("pdftoppm (poppler-utils)")
+
+        if missing_tools:
+            joined = ", ".join(missing_tools)
+            raise RuntimeError(
+                "OCR dependencies are missing: "
+                f"{joined}. Install required system packages before running scanned-PDF OCR."
+            )
+
     def extract_text(self, file_path: str) -> str:
         print("Using Scanned OCR Engine...")
         text = ""
+        self._validate_ocr_dependencies()
         try:
             images = convert_from_path(file_path)
             for image in images:
                 text += pytesseract.image_to_string(image) + "\n"
+        except TesseractNotFoundError as e:
+            raise RuntimeError(
+                "Tesseract binary not found in PATH. "
+                "Install tesseract-ocr and ensure the 'tesseract' command is available."
+            ) from e
         except Exception as e:
             raise RuntimeError(f"OCR Error (Is Poppler/Tesseract installed?): {e}")
         return text
@@ -52,7 +76,7 @@ class DocumentProcessorFactory:
         try:
             doc = fitz.open(file_path)
             # Sample the first page to check text density
-            sample_text = doc[0].get_text() if len(doc) > 0 else ""
+            sample_text = str(doc[0].get_text("text")) if len(doc) > 0 else ""
             
             # If text is extremely sparse, it's likely a scanned image
             if len(sample_text.strip()) < 50:

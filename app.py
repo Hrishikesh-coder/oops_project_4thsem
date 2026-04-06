@@ -1,17 +1,11 @@
 import streamlit as st
-import json
 import os
 import tempfile
 
 # Importing our new OOP Architectures
-from extractor import DocumentProcessorFactory
-from normalization import (
-    BaseTextProcessor, 
-    WhitespaceRemover, 
-    PunctuationStripper, 
-    WordToDigitConverter
-)
-from parser import RegexParserClassifier, LLMParserClassifier
+from components.main import PipelineSettings, ProcessingPipeline
+from components.parser import LLMParserClassifier, RegexParserClassifier, SpacyParserClassifier
+from components.serialize import ResultSerializer
 
 # ==========================================
 # 1. PAGE CONFIGURATION & UI SETUP
@@ -24,6 +18,7 @@ st.markdown("Showcasing Factory, Decorator, and Encapsulation Patterns.")
 def load_classifiers():
     return {
         "Regex Engine (Fast)": RegexParserClassifier(),
+        "spaCy NLP Engine": SpacyParserClassifier(),
         "LLM Engine (Smart)": LLMParserClassifier()
     }
 
@@ -37,7 +32,7 @@ st.sidebar.header("⚙️ Pipeline Settings")
 # Toggle for the Encapsulated Classifier
 selected_engine = st.sidebar.radio(
     "Select Classification Engine:",
-    options=["Regex Engine (Fast)", "LLM Engine (Smart)"]
+    options=["Regex Engine (Fast)", "spaCy NLP Engine", "LLM Engine (Smart)"]
 )
 
 st.sidebar.markdown("---")
@@ -65,41 +60,21 @@ if uploaded_file is not None:
 
     with st.spinner('Running OOP Extraction Pipeline...'):
         try:
-            # ---------------------------------------------------------
-            # STEP A: THE FACTORY PATTERN
-            # ---------------------------------------------------------
-            # We don't instantiate the processor directly. The factory decides.
-            processor = DocumentProcessorFactory.get_processor(temp_pdf_path)
-            raw_text = processor.extract_text(temp_pdf_path)
-
-            # ---------------------------------------------------------
-            # STEP B: THE DECORATOR PATTERN
-            # ---------------------------------------------------------
-            # Start with the base component
-            text_pipeline = BaseTextProcessor()
-            
-            # Dynamically wrap it in decorators based on UI checkboxes!
-            if use_whitespace_remover:
-                text_pipeline = WhitespaceRemover(text_pipeline)
-            if use_word_converter:
-                text_pipeline = WordToDigitConverter(text_pipeline)
-            if use_punctuation_stripper:
-                text_pipeline = PunctuationStripper(text_pipeline)
-                
-            # Execute the decorator chain
-            normalized_text = text_pipeline.process(raw_text)
-
-            # ---------------------------------------------------------
-            # STEP C: ENCAPSULATED CLASSIFICATION
-            # ---------------------------------------------------------
             active_classifier = classifiers[selected_engine]
-            final_data = active_classifier.process(normalized_text)
+            settings = PipelineSettings(
+                use_whitespace_remover=use_whitespace_remover,
+                use_word_converter=use_word_converter,
+                use_punctuation_stripper=use_punctuation_stripper,
+            )
+            pipeline = ProcessingPipeline(active_classifier, settings)
+            output = pipeline.run(temp_pdf_path)
+            final_data = ResultSerializer.to_records(output.classified_results)
 
             # --- Render Results in UI ---
             with col1:
                 st.subheader("Normalized Text Output")
-                st.caption(f"Processed by: {processor.__class__.__name__}")
-                st.text_area("Pipeline Text", normalized_text, height=400)
+                st.caption(f"Processed by: {output.processor_name}")
+                st.text_area("Pipeline Text", output.normalized_text, height=400)
 
             with col2:
                 st.subheader("Extracted JSON Output")
@@ -112,7 +87,7 @@ if uploaded_file is not None:
                     label="⬇️ Download JSON File",
                     file_name=f"extracted_{uploaded_file.name}.json",
                     mime="application/json",
-                    data=json.dumps(final_data, indent=4),
+                    data=ResultSerializer.to_json(output.classified_results),
                     use_container_width=True
                 )
 
