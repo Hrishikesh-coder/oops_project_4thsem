@@ -1,17 +1,23 @@
 from abc import ABC, abstractmethod
-import re
+from dataclasses import dataclass
 import json
+import re
+from typing import List
 
 # ==========================================
 # 1. THE ENCAPSULATED INTERFACE
 # ==========================================
+@dataclass
+class ClassificationResult:
+    original_text: str
+    normalized_value: str
+    category: str
+
+
 class BaseParserClassifier(ABC):
-    """
-    A single block that handles BOTH converting words to digits 
-    AND classifying the text into entities.
-    """
+    """Classifier contract. Implementations should only classify text."""
     @abstractmethod
-    def process(self, raw_text: str) -> list:
+    def classify(self, text: str) -> List[ClassificationResult]:
         pass
 
 
@@ -32,36 +38,108 @@ class RegexParserClassifier(BaseParserClassifier):
             "TIME": r'\b\d{1,2}:\d{2}\s?(?:AM|PM|am|pm)?\b'
         }
         
-        # A lightweight Regex word-to-digit map (to replace w2n for simple cases)
-        self.word_map = {
-            "one": "1", "two": "2", "three": "3", "four": "4", "five": "5", 
-            "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
-            "twenty": "20", "thirty": "30" # Expand this dictionary as needed
+
+    def classify(self, text: str) -> List[ClassificationResult]:
+        results: List[ClassificationResult] = []
+        for label, pattern in self.patterns.items():
+            for match in re.finditer(pattern, text):
+                original = match.group().strip()
+                results.append(
+                    ClassificationResult(
+                        original_text=original,
+                        normalized_value=re.sub(r"[^\w\s]", "", original),
+                        category=label,
+                    )
+                )
+        return results
+
+
+class SpacyParserClassifier(BaseParserClassifier):
+    """spaCy-backed classifier using model entities and matcher patterns."""
+
+    def __init__(self):
+        try:
+            import spacy  # type: ignore[import-not-found]
+            from spacy.matcher import Matcher  # type: ignore[import-not-found]
+        except ImportError as exc:
+            raise RuntimeError(
+                "spaCy is not installed. Install requirements.txt to use the spaCy classifier."
+            ) from exc
+
+        try:
+            self.nlp = spacy.load("en_core_web_sm")
+        except OSError as exc:
+            raise RuntimeError(
+                "spaCy model 'en_core_web_sm' is missing. "
+                "Install requirements.txt or run: python -m spacy download en_core_web_sm"
+            ) from exc
+
+        self.matcher = Matcher(self.nlp.vocab)
+        self.matcher.add(
+            "PHONE_NUMBER",
+            [[{"TEXT": {"REGEX": r"^\+?\d[\d\-\.\s\(\)]{7,}$"}}]],
+        )
+        self.matcher.add(
+            "LICENSE_PLATE",
+            [[{"TEXT": {"REGEX": r"^[A-Z]{2}[-\s]?\d{1,2}[-\s]?[A-Z]{1,2}[-\s]?\d{3,4}$"}}]],
+        )
+
+        self.entity_label_map = {
+            "DATE": "DATE",
+            "TIME": "TIME",
+            "MONEY": "MONEY",
+            "PERCENT": "PERCENT",
+            "QUANTITY": "QUANTITY",
+            "CARDINAL": "CARDINAL",
         }
 
-    def _normalize_text(self, text: str) -> str:
-        """Internal method to convert words to digits using regex substitution."""
-        normalized = text
-        for word, digit in self.word_map.items():
-            # \b ensures we only replace whole words (e.g., won't turn 'tone' into 't1')
-            normalized = re.sub(rf'\b{word}\b', digit, normalized, flags=re.IGNORECASE)
-        return normalized
+    def classify(self, text: str) -> List[ClassificationResult]:
+        doc = self.nlp(text)
+        results: List[ClassificationResult] = []
 
-    def process(self, raw_text: str) -> list:
-        # Step 1: Parse and normalize in memory
-        normalized_text = self._normalize_text(raw_text)
-        
-        # Step 2: Classify using the pure regex rules
-        results = []
-        for label, pattern in self.patterns.items():
-            for match in re.finditer(pattern, normalized_text):
-                original = match.group().strip()
-                results.append({
-                    "original_text": original,
-                    # Basic cleanup for the normalised value
-                    "normalized_value": re.sub(r'[^\w\s]', '', original), 
-                    "Category": label
-                })
+        for ent in doc.ents:
+            mapped_category = self.entity_label_map.get(ent.label_)
+            if not mapped_category:
+                continue
+            value = ent.text.strip()
+            results.append(
+                ClassificationResult(
+                    original_text=value,
+                    normalized_value=re.sub(r"\s+", " ", value),
+                    category=mapped_category,
+                )
+            )
+
+        for _, start, end in self.matcher(doc):
+            span = doc[start:end]
+            value = span.text.strip()
+            if re.fullmatch(r"\+?\d[\d\-\.\s\(\)]{7,}", value):
+                category = "PHONE_NUMBER"
+            else:
+                category = "LICENSE_PLATE"
+
+            results.append(
+                ClassificationResult(
+                    original_text=value,
+                    normalized_value=re.sub(r"[^\w\s]", "", value),
+                    category=category,
+                )
+            )
+
+        # Include standalone numerals that may not be tagged as entities.
+        for token in doc:
+            if token.like_num:
+                value = token.text.strip()
+                if any(r.original_text == value and r.category == "CARDINAL" for r in results):
+                    continue
+                results.append(
+                    ClassificationResult(
+                        original_text=value,
+                        normalized_value=value,
+                        category="CARDINAL",
+                    )
+                )
+
         return results
 
 
@@ -69,9 +147,7 @@ class RegexParserClassifier(BaseParserClassifier):
 # 3. PATH B: LLM IMPLEMENTATION
 # ==========================================
 class LLMParserClassifier(BaseParserClassifier):
-    def process(self, raw_text: str) -> list:
-        # We delegate BOTH the word-to-number parsing and the classification 
-        # to the LLM via a strict prompt.
+    def classify(self, text: str) -> List[ClassificationResult]:
         prompt = f"""
         Task: Extract, convert, and classify numerical data from the following text.
         
@@ -80,13 +156,13 @@ class LLMParserClassifier(BaseParserClassifier):
         2. Classify: Identify the type of data (e.g., DATE, PHONE_NUMBER, LICENSE_PLATE, TIME, or QUANTITY).
         
         Return ONLY a valid JSON array of dictionaries with the exact keys: 
-        "original_text", "normalized_value", "Category".
+        "original_text", "normalized_value", "category".
         
         Text to process:
-        {raw_text}
+        {text}
         """
         
-        print("Sending unified parsing and classification task to LLM...")
+        print("Sending classification task to LLM...")
         
         # [!] In production, replace this string with your actual API call 
         # (e.g., openai.ChatCompletion.create or a local PyTorch model call)
@@ -95,18 +171,26 @@ class LLMParserClassifier(BaseParserClassifier):
             {
                 "original_text": "twenty two", 
                 "normalized_value": "22", 
-                "Category": "QUANTITY"
+                "category": "QUANTITY"
             },
             {
                 "original_text": "WB-24-X-9999", 
                 "normalized_value": "WB24X9999", 
-                "Category": "LICENSE_PLATE"
+                "category": "LICENSE_PLATE"
             }
         ]
         '''
         
         try:
-            return json.loads(mock_api_response)
+            loaded = json.loads(mock_api_response)
+            return [
+                ClassificationResult(
+                    original_text=item.get("original_text", ""),
+                    normalized_value=item.get("normalized_value", ""),
+                    category=item.get("category", "UNKNOWN"),
+                )
+                for item in loaded
+            ]
         except json.JSONDecodeError:
             print("LLM returned invalid JSON.")
             return []
