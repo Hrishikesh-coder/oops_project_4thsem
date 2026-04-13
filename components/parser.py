@@ -30,12 +30,52 @@ class RegexParserClassifier(BaseParserClassifier):
         self.patterns = {
             # Matches standard dates and common text dates (e.g., 12/04/2026 or Jan 12th 2026)
             "DATE": r'\b(?:\d{1,2}[-/thstnd\s]+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ \.,]+\d{1,2}[-/ \.,]+\d{2,4}\b|\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b',
+            # Matches currency values with common symbols and optional magnitude words
+            "MONEY": r'\b(?:USD|INR|EUR|GBP|Rs\.?|\$)\s?\d+(?:,\d{3})*(?:\.\d+)?(?:\s?(?:thousand|million|billion|lakh|crore))?\b|\b\d+(?:,\d{3})*(?:\.\d+)?\s?(?:USD|INR|EUR|GBP|dollars?|rupees?|euros?|pounds?)\b',
+            # Matches percentage values
+            "PERCENT": r'\b[-+]?\d+(?:\.\d+)?\s?%\b|\b[-+]?\d+(?:\.\d+)?\s?(?:percent|percentage)\b',
             # Matches common phone formats
             "PHONE_NUMBER": r'\+?\d{1,3}[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',
             # Matches standard Indian/International license plate formats (e.g., WB-02-AD-1234)
-            "LICENSE_PLATE": r'\b[A-Z]{2}[-.\s]?\d{2}[-.\s]?[A-Z]{1,2}[-.\s]?\d{4}\b', 
+            "LICENSE_PLATE": r'\b[A-Z]{2}[-.\s]?\d{1,2}[-.\s]?[A-Z]{1,2}[-.\s]?\d{3,4}\b',
             # Matches standard time
-            "TIME": r'\b\d{1,2}:\d{2}\s?(?:AM|PM|am|pm)?\b'
+            "TIME": r'\b\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM|am|pm)?\b',
+            # Matches age expressions
+            "AGE": r'\b(?:age\s*[:=-]?\s*)?\d{1,3}\s?(?:years?\s?old|yrs?\.?\b)\b',
+            # Matches temperature values
+            "TEMPERATURE": r'\b[-+]?\d+(?:\.\d+)?\s?°?\s?(?:C|F|K|celsius|fahrenheit|kelvin)\b',
+            # Matches distances and lengths
+            "DISTANCE": r'\b\d+(?:\.\d+)?\s?(?:km|kilometers?|m|meters?|mi|miles?|ft|feet|in|inches|cm|mm)\b',
+            # Matches weights/mass
+            "WEIGHT": r'\b\d+(?:\.\d+)?\s?(?:kg|kilograms?|g|grams?|mg|lb|lbs|pounds?)\b',
+            # Matches human height formats
+            "HEIGHT": r'\b\d\s?\'\s?\d{1,2}\s?\"\b|\b\d+(?:\.\d+)?\s?(?:cm|m|ft|feet|in|inches)\s?(?:tall)?\b',
+            # Matches speed values
+            "SPEED": r'\b\d+(?:\.\d+)?\s?(?:km/h|kph|mph|m/s)\b',
+            # Matches area units
+            "AREA": r'\b\d+(?:\.\d+)?\s?(?:sq\.?\s?(?:ft|feet|m|km)|square\s?(?:feet|meters?|kilometers?)|sq\s?m|sq\s?km|sq\s?ft|acres?|hectares?)\b',
+            # Matches volume/capacity values
+            "VOLUME": r'\b\d+(?:\.\d+)?\s?(?:l|liters?|litres?|ml|milliliters?|millilitres?|gallons?)\b',
+            # Matches directional percentage change phrases
+            "PERCENTAGE_CHANGE": r'\b(?:up|down|increased\sby|decreased\sby|rise\sof|drop\sof)\s+\d+(?:\.\d+)?\s?%\b|\b[-+]\d+(?:\.\d+)?\s?%\b',
+            # Matches ratio forms
+            "RATIO": r'\b\d+(?:\.\d+)?\s?:\s?\d+(?:\.\d+)?\b',
+            # Matches numeric ranges
+            "RANGE": r'\b\d+(?:\.\d+)?\s?(?:-|to)\s?\d+(?:\.\d+)?\b',
+            # Matches ordinal numbers
+            "ORDINAL": r'\b\d{1,3}(?:st|nd|rd|th)\b',
+            # Matches Indian PIN / common postal code formats
+            "PIN_CODE": r'\b\d{6}\b|\b\d{5}(?:-\d{4})?\b',
+            # Matches account-like identifiers
+            "ACCOUNT_NUMBER": r'\b(?:A/C|AC|Account\s?(?:No\.?|Number)?)\s*[:#-]?\s*\d{8,18}\b',
+            # Matches common invoice/order IDs
+            "INVOICE_ID": r'\b(?:INV|INVOICE|ORD|ORDER)[-_/]?[A-Z0-9]{3,}\b',
+            # Matches PAN and GSTIN style tax identifiers
+            "TAX_ID": r'\b[A-Z]{5}\d{4}[A-Z]\b|\b\d{2}[A-Z]{5}\d{4}[A-Z]\d[Zz][A-Z0-9]\b',
+            # Matches standalone quantity-like numerals with optional thousand separators
+            "QUANTITY": r'\b\d+(?:,\d{3})*(?:\.\d+)?\b',
+            # Matches plain cardinal integers and decimals
+            "CARDINAL": r'\b[-+]?\d+(?:\.\d+)?\b',
         }
         
 
@@ -91,7 +131,30 @@ class SpacyParserClassifier(BaseParserClassifier):
             "PERCENT": "PERCENT",
             "QUANTITY": "QUANTITY",
             "CARDINAL": "CARDINAL",
+            "ORDINAL": "ORDINAL",
+            # Keep direct mappings for custom labels if they are provided by
+            # custom pipelines or EntityRuler configurations.
+            "AGE": "AGE",
+            "TEMPERATURE": "TEMPERATURE",
+            "DISTANCE": "DISTANCE",
+            "WEIGHT": "WEIGHT",
+            "HEIGHT": "HEIGHT",
+            "SPEED": "SPEED",
+            "AREA": "AREA",
+            "VOLUME": "VOLUME",
+            "PERCENTAGE_CHANGE": "PERCENTAGE_CHANGE",
+            "RATIO": "RATIO",
+            "RANGE": "RANGE",
+            "PIN_CODE": "PIN_CODE",
+            "ACCOUNT_NUMBER": "ACCOUNT_NUMBER",
+            "INVOICE_ID": "INVOICE_ID",
+            "TAX_ID": "TAX_ID",
+            "PHONE_NUMBER": "PHONE_NUMBER",
+            "LICENSE_PLATE": "LICENSE_PLATE",
         }
+
+        # Reuse full regex category set so spaCy path covers all project labels.
+        self.regex_patterns = RegexParserClassifier().patterns
 
     def classify(self, text: str) -> List[ClassificationResult]:
         doc = self.nlp(text)
@@ -110,13 +173,10 @@ class SpacyParserClassifier(BaseParserClassifier):
                 )
             )
 
-        for _, start, end in self.matcher(doc):
+        for match_id, start, end in self.matcher(doc):
             span = doc[start:end]
             value = span.text.strip()
-            if re.fullmatch(r"\+?\d[\d\-\.\s\(\)]{7,}", value):
-                category = "PHONE_NUMBER"
-            else:
-                category = "LICENSE_PLATE"
+            category = self.nlp.vocab.strings[match_id]
 
             results.append(
                 ClassificationResult(
@@ -125,6 +185,20 @@ class SpacyParserClassifier(BaseParserClassifier):
                     category=category,
                 )
             )
+
+        # Ensure the spaCy parser can emit the full regex-based label space.
+        for label, pattern in self.regex_patterns.items():
+            for match in re.finditer(pattern, text):
+                value = match.group().strip()
+                if any(r.original_text == value and r.category == label for r in results):
+                    continue
+                results.append(
+                    ClassificationResult(
+                        original_text=value,
+                        normalized_value=re.sub(r"[^\w\s]", "", value),
+                        category=label,
+                    )
+                )
 
         # Include standalone numerals that may not be tagged as entities.
         for token in doc:

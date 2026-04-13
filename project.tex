@@ -1,0 +1,526 @@
+\documentclass[12pt, a4paper]{article}
+ 
+% ─── Packages ───────────────────────────────────────────────────────────────
+\usepackage[a4paper, top=1in, bottom=1in, left=1.2in, right=1.2in]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{parskip}
+\usepackage{setspace}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{mdframed}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit}
+ 
+% ─── Colours ────────────────────────────────────────────────────────────────
+\definecolor{PrimaryBlue}{HTML}{1A3A5C}
+\definecolor{AccentBlue}{HTML}{2E75B6}
+\definecolor{LightGray}{HTML}{F5F5F5}
+\definecolor{MidGray}{HTML}{AAAAAA}
+\definecolor{CodeBg}{HTML}{F0F4F8}
+\definecolor{CodeKw}{HTML}{2E75B6}
+\definecolor{CodeStr}{HTML}{C0392B}
+\definecolor{CodeCmt}{HTML}{27AE60}
+\definecolor{PatternGreen}{HTML}{1E6B45}
+\definecolor{PatternGreenLight}{HTML}{E8F5EE}
+ 
+% ─── Hyperref ───────────────────────────────────────────────────────────────
+\hypersetup{colorlinks=true, linkcolor=AccentBlue, urlcolor=AccentBlue,
+  pdftitle={PDF Numerical Data Extractor — OOP Group Project}}
+ 
+% ─── Section Formatting ─────────────────────────────────────────────────────
+\titleformat{\section}{\large\bfseries\color{PrimaryBlue}}{\thesection}{1em}{}
+  [{\color{MidGray}\titlerule[0.4pt]}]
+\titleformat{\subsection}{\normalsize\bfseries\color{AccentBlue}}{\thesubsection}{1em}{}
+ 
+% ─── Code Style ─────────────────────────────────────────────────────────────
+\lstdefinestyle{py}{
+  backgroundcolor=\color{CodeBg},
+  commentstyle=\color{CodeCmt}\itshape,
+  keywordstyle=\color{CodeKw}\bfseries,
+  stringstyle=\color{CodeStr},
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{MidGray},
+  numbersep=8pt,
+  frame=single,
+  rulecolor=\color{MidGray},
+  tabsize=4,
+  showstringspaces=false,
+  language=Python,
+  morekeywords={self,True,False,None,abstractmethod,ABC},
+}
+\lstset{style=py}
+ 
+% ─── Info / Pattern Boxes ───────────────────────────────────────────────────
+\mdfdefinestyle{infobox}{backgroundcolor=LightGray, linecolor=AccentBlue,
+  linewidth=2pt, leftline=true, rightline=false, topline=false, bottomline=false,
+  innerleftmargin=10pt, innerrightmargin=10pt, innertopmargin=6pt, innerbottommargin=6pt}
+ 
+\mdfdefinestyle{patternbox}{backgroundcolor=PatternGreenLight,
+  linecolor=PatternGreen, linewidth=2pt, leftline=true, rightline=false,
+  topline=false, bottomline=false,
+  innerleftmargin=10pt, innerrightmargin=10pt, innertopmargin=6pt, innerbottommargin=6pt}
+ 
+% ─── Header / Footer ────────────────────────────────────────────────────────
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small\color{AccentBlue}\textbf{PDF Numerical Data Extractor}}
+\fancyhead[R]{\small\color{MidGray}OOP Group Project}
+\fancyfoot[C]{\small\color{MidGray}\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\headrule}{\hbox to\headwidth{%
+  \color{AccentBlue}\leaders\hrule height\headrulewidth\hfill}}
+ 
+\setstretch{1.3}
+\setlength{\parskip}{5pt}
+ 
+% ════════════════════════════════════════════════════════════════════════════
+\begin{document}
+% ════════════════════════════════════════════════════════════════════════════
+ 
+% ─── Title Page ─────────────────────────────────────────────────────────────
+\begin{titlepage}
+\centering
+\vspace*{1cm}
+{\color{PrimaryBlue}\rule{\linewidth}{2pt}}\\[0.5cm]
+ 
+\includegraphics[width=3cm]{jadavpurlogo.jpg}\\[0.5cm]
+ 
+{\color{MidGray}\small Department of Computer Science \& Engineering}\\[0.1cm]
+{\color{MidGray}\small Academic Year 2024--2025}\\[0.6cm]
+{\color{PrimaryBlue}\rule{\linewidth}{0.5pt}}\\[0.5cm]
+ 
+{\color{PrimaryBlue}\Huge\bfseries PDF Numerical\\[0.2cm]Data Extractor}\\[0.3cm]
+{\color{AccentBlue}\large\itshape An Object-Oriented Pipeline using Factory,\\
+Decorator, and Polymorphism Design Patterns}\\[0.7cm]
+ 
+{\color{PrimaryBlue}\rule{\linewidth}{0.5pt}}\\[0.6cm]
+ 
+\begin{minipage}{0.45\textwidth}
+\centering{\large\bfseries\color{PrimaryBlue}Group Members}\\[0.4cm]
+\begin{tabular}{ll}
+\toprule
+\textbf{Name} & \textbf{Roll No.}\\
+\midrule
+Member 1     & XXXXXX01 \\
+Member 2     & XXXXXX02 \\
+Member 3     & XXXXXX03 \\
+Member 4     & XXXXXX04 \\
+Member 5     & XXXXXX05 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\textwidth}
+\centering{\large\bfseries\color{PrimaryBlue}Project Details}\\[0.4cm]
+\begin{tabular}{ll}
+\toprule
+\textbf{Field} & \textbf{Value}\\
+\midrule
+Course     & CS2XX: OOP Lab \\
+Semester   & 4th / Even \\
+Group No.  & 5 \\
+Supervisor & Prof.\ [Name] \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+ 
+\vfill
+{\color{PrimaryBlue}\rule{\linewidth}{2pt}}\\[0.3cm]
+{\color{MidGray}\small Submitted in partial fulfilment of the requirements
+for the Object-Oriented Programming Laboratory}
+\end{titlepage}
+ 
+% ════════════════════════════════════════════════════════════════════════════
+\section*{Abstract}
+% ════════════════════════════════════════════════════════════════════════════
+ 
+This report describes the design and implementation of a Python-based pipeline
+that solves Question~5 of the OOP group project: given a scanned or printed
+PDF, the system extracts all numerical information, converts numbers written in
+words into digit form, and classifies each by type (Date, Phone Number, Time,
+License Number, etc.). The output is a structured JSON file per document
+containing the \emph{original text}, \emph{normalised value}, and
+\emph{category} of every detected number.
+ 
+The implementation spans a modular \texttt{components/} package and a
+Streamlit front-end. Each module demonstrates a distinct OOP design pattern:
+\textbf{Factory Method} (extractor), \textbf{Decorator} (normalisation), and
+\textbf{Polymorphism with Liskov Substitution} (parser/classifier), with
+output formatting delegated to a dedicated serializer.
+ 
+% ════════════════════════════════════════════════════════════════════════════
+\section{Introduction}
+% ════════════════════════════════════════════════════════════════════════════
+ 
+\begin{mdframed}[style=infobox]
+\textbf{Problem Statement (Q5):} Design a Python function or model that
+extracts all numerical information from a scanned or printed PDF, converts
+numbers written in words into digits, and classifies each by type.\\[4pt]
+\textbf{Input:} A PDF --- scanned or printed.\quad
+\textbf{Output:} A JSON file with \emph{original text}, \emph{normalised
+value}, and \emph{category} for every number found.
+\end{mdframed}
+ 
+Numerical data embedded in PDFs --- dates on invoices, phone numbers on
+contact sheets, amounts on government forms --- is inaccessible to automated
+systems unless explicitly extracted. This project automates that process
+end-to-end, handling both digital and scanned documents without requiring
+any user configuration, and outputting results in the JSON schema required
+by the assignment.
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Project File Structure}
+% ════════════════════════════════════════════════════════════════════════════
+ 
+\begin{lstlisting}[language=bash, numbers=none, caption={Project directory layout}]
+oops_project_4thsem/
+  app.py                     # Streamlit UI layer (client)
+  requirements.txt           # Reproducible pinned dependencies
+  components/
+    __init__.py
+    extractor.py             # Document ingestion engine  [Factory Method]
+    normalization.py         # Text pre-processing engine [Decorator Pattern]
+    parser.py                # Classification engines     [Polymorphism / LSP]
+    serialize.py             # JSON serializer
+    main.py                  # ProcessingPipeline orchestration service
+\end{lstlisting}
+ 
+Each file owns a focused responsibility. \texttt{app.py} handles UI concerns,
+while the orchestration logic is encapsulated in
+\texttt{components/main.py} as \texttt{ProcessingPipeline}.
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Workflow Diagram}
+% ════════════════════════════════════════════════════════════════════════════
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{workflow_diagram.png}
+  \caption{End-to-end pipeline architecture and OOP design patterns.}
+  \label{fig:workflow}
+\end{figure}
+% ════════════════════════════════════════════════════════════════════════════
+\section{Module Design}
+% ════════════════════════════════════════════════════════════════════════════
+ 
+% ── 3.1 ─────────────────────────────────────────────────────────────────────
+\subsection{\texttt{extractor.py} --- Ingestion Layer (Factory Method Pattern)}
+ 
+\textbf{What it does.} Determines whether the uploaded PDF has a native text
+layer (digital) or consists of scanned images (requires OCR), then extracts
+the raw text accordingly using \texttt{PyMuPDF} or \texttt{Tesseract}.
+ 
+\textbf{Design pattern: Factory Method.} An interface defines the contract;
+two concrete classes implement it; a factory decides at runtime which to
+instantiate.
+ 
+\begin{mdframed}[style=patternbox]
+\textbf{OOP Principle --- Open/Closed (OCP).} The factory is \emph{open for
+extension} (add a \texttt{WordDocProcessor} by writing one new class) but
+\emph{closed for modification} (the existing PDF logic is never touched).
+\end{mdframed}
+ 
+\begin{lstlisting}[caption={extractor.py --- interface and factory skeleton}]
+from abc import ABC, abstractmethod
+ 
+class IDocumentProcessor(ABC):
+    @abstractmethod
+    def extract_text(self, file_path: str) -> str: ...
+ 
+class DigitalPDFProcessor(IDocumentProcessor):
+    def extract_text(self, file_path: str) -> str:
+        # Uses PyMuPDF (fitz) to read native text layer
+        ...
+ 
+class ScannedPDFProcessor(IDocumentProcessor):
+    def extract_text(self, file_path: str) -> str:
+        # Converts pages to images, runs Tesseract OCR
+        ...
+ 
+class DocumentProcessorFactory:
+    @staticmethod
+    def get_processor(file_path: str) -> IDocumentProcessor:
+        # Inspects file; returns DigitalPDFProcessor or ScannedPDFProcessor
+        ...
+\end{lstlisting}
+ 
+% ── 3.2 ─────────────────────────────────────────────────────────────────────
+\subsection{\texttt{normalization.py} --- Pre-Processing Layer (Decorator Pattern)}
+ 
+\textbf{What it does.} Cleans the raw text returned by the extractor:
+collapses whitespace, strips stray punctuation, and converts selected
+word-form numbers (\emph{``twenty two''} $\to$ \texttt{22}) via a decorator.
+ 
+\textbf{Design pattern: Decorator.} A base component returns text unchanged.
+Each decorator wraps the previous layer, applies one specific transformation,
+and passes the result forward. The application stacks them dynamically based
+on which checkboxes the user enables in the UI.
+ 
+\begin{mdframed}[style=patternbox]
+\textbf{OOP Principle --- Single Responsibility (SRP).} No single class
+performs more than one kind of text manipulation. Behaviours are composed
+like Lego bricks rather than written as one monolithic \texttt{clean\_text()}
+function.
+\end{mdframed}
+ 
+\begin{lstlisting}[caption={normalization.py --- interface and decorator skeleton}]
+from abc import ABC, abstractmethod
+ 
+class TextProcessor(ABC):
+    @abstractmethod
+    def process(self, text: str) -> str: ...
+ 
+class BaseTextProcessor(TextProcessor):
+    def process(self, text: str) -> str:
+        return text   # foundation: pass text through unchanged
+ 
+class WhitespaceRemover(TextProcessor):
+    def __init__(self, wrapped: TextProcessor): self._wrapped = wrapped
+    def process(self, text: str) -> str:
+        # Collapse multiple spaces/newlines, then delegate upward
+        ...
+ 
+class PunctuationStripper(TextProcessor):
+    def __init__(self, wrapped: TextProcessor): self._wrapped = wrapped
+    def process(self, text: str) -> str:
+        # Strip stray punctuation, then delegate upward
+        ...
+ 
+class WordToDigitConverter(TextProcessor):
+    def __init__(self, wrapped: TextProcessor): self._wrapped = wrapped
+    def process(self, text: str) -> str:
+  # Convert "twenty two" -> "22" via word-map replacement, then delegate
+        ...
+\end{lstlisting}
+ 
+A typical stack assembled in \texttt{app.py}:
+\begin{lstlisting}[numbers=none]
+pipeline = WordToDigitConverter(
+               PunctuationStripper(
+                   WhitespaceRemover(BaseTextProcessor())))
+clean_text = pipeline.process(raw_text)
+\end{lstlisting}
+ 
+% ── 3.3 ─────────────────────────────────────────────────────────────────────
+\subsection{\texttt{parser.py} --- Classification Layer (Polymorphism / LSP)}
+ 
+\textbf{What it does.} Scans the cleaned text for numerical entities and
+returns typed classification results (Date, Phone Number, Time, License Plate,
+etc.). JSON serialization is now handled in a separate module.
+ 
+\textbf{Design pattern: Polymorphism with Liskov Substitution.} An abstract
+base class defines the contract. Three concrete engines implement it
+differently --- Regex-only, spaCy NLP, and an LLM-backed parser.
+The rest of the application calls \texttt{classify()} without knowing which
+engine is active.
+ 
+\begin{mdframed}[style=patternbox]
+\textbf{OOP Principle --- Liskov Substitution (LSP) \& Encapsulation.}
+\texttt{RegexParserClassifier}, \texttt{SpacyParserClassifier}, and
+\texttt{LLMParserClassifier} are interchangeable. Switching engines requires
+zero changes outside \texttt{parser.py} and UI configuration.
+\end{mdframed}
+ 
+\begin{lstlisting}[caption={parser.py --- abstract base and two concrete engines}]
+from abc import ABC, abstractmethod
+ 
+class BaseParserClassifier(ABC):
+    @abstractmethod
+  def classify(self, clean_text: str): ...
+  # Returns a list of ClassificationResult dataclass objects
+ 
+class RegexParserClassifier(BaseParserClassifier):
+  def classify(self, clean_text: str):
+    # Regex patterns for DATE / PHONE_NUMBER / LICENSE_PLATE / TIME
+    ...
+
+class SpacyParserClassifier(BaseParserClassifier):
+  def classify(self, clean_text: str):
+    # spaCy entities + matcher fallback for phone/license plate
+        ...
+ 
+class LLMParserClassifier(BaseParserClassifier):
+  def classify(self, clean_text: str):
+    # Sends structured prompt to LLM API;
+    # maps response into ClassificationResult objects
+        ...
+\end{lstlisting}
+ 
+\begin{table}[H]
+\centering
+\caption{Category mapping and normalisation examples}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Source} & \textbf{Category} & \textbf{original $\to$ normalised} \\
+\midrule
+spaCy \texttt{DATE}     & DATE           & ``14 August 2025'' $\to$ \texttt{14 August 2025} \\
+spaCy \texttt{MONEY}    & MONEY          & ``Rs. 12,500'' $\to$ \texttt{Rs. 12,500} \\
+spaCy \texttt{CARDINAL} & CARDINAL       & ``twenty'' $\to$ \texttt{twenty} \\
+Regex match             & PHONE\_NUMBER & ``+91-98765-43210'' $\to$ \texttt{919876543210} \\
+Regex match             & DATE           & ``14/08/2025'' $\to$ \texttt{14082025} \\
+Regex match             & LICENSE\_PLATE & ``WB-24-X-9999'' $\to$ \texttt{WB24X9999} \\
+\bottomrule
+\end{tabular}
+\end{table}
+ 
+% ── 3.4 ─────────────────────────────────────────────────────────────────────
+\subsection{\texttt{main.py} + \texttt{serialize.py} + \texttt{app.py} --- Orchestration, Serialization, and UI}
+
+\textbf{What \texttt{main.py} does.} Defines \texttt{PipelineSettings},
+\texttt{PipelineOutput}, and \texttt{ProcessingPipeline}. It performs
+extractor selection, decorator stack construction, text normalization, and
+classifier invocation.
+
+\textbf{What \texttt{serialize.py} does.} Converts classifier output objects
+into JSON-friendly records and strings, centralizing output formatting in one
+place.
+ 
+\textbf{What \texttt{app.py} does.} Provides the Streamlit UI: a file uploader, toggle
+checkboxes for each normalisation decorator, and a sidebar to select the
+classification engine (Regex, spaCy, or LLM). Displays normalized text and the
+final JSON side-by-side; offers a \emph{Download JSON} button.
+ 
+\textbf{OOP role: Thin Client + Service Layer.} \texttt{app.py} delegates core
+pipeline behavior to \texttt{ProcessingPipeline} and output formatting to
+\texttt{ResultSerializer}. This keeps UI and domain logic decoupled.
+ 
+\begin{mdframed}[style=patternbox]
+\textbf{OOP Principle --- Separation of Concerns.} The UI layer is completely
+decoupled from extraction, normalisation, and classification logic. Any module
+can be replaced with minimal impact on \texttt{app.py}.
+\end{mdframed}
+ 
+% ════════════════════════════════════════════════════════════════════════════
+\section{End-to-End Data Flow}
+% ════════════════════════════════════════════════════════════════════════════
+ 
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=0.5cm and 0.35cm,
+  every node/.style={font=\small},
+  box/.style={rectangle, rounded corners=4pt, minimum width=2.5cm,
+    minimum height=0.82cm, draw=AccentBlue, fill=LightGray,
+    text=PrimaryBlue, align=center, thick},
+  arr/.style={-Stealth, thick, color=AccentBlue},
+  lbl/.style={font=\footnotesize\itshape\color{MidGray}},
+]
+\node[box] (pdf)  {PDF\\Input};
+\node[box, right=of pdf]  (ext)  {extractor.py\\Factory};
+\node[box, right=of ext]  (norm) {normalization.py\\Decorator Stack};
+\node[box, right=of norm] (par)  {parser.py\\Classifier};
+\node[box, right=of par]  (ser)  {serialize.py\\Serializer};
+\node[box, right=of ser]  (out)  {JSON\\Output};
+ 
+\draw[arr](pdf)--(ext);
+\draw[arr](ext)--(norm)
+\draw[arr](norm)--(par) 
+\draw[arr](par)--(ser)
+\draw[arr](ser)--(out) 
+ 
+\node[lbl, below=0.2cm of ext]  {OCP};
+\node[lbl, below=0.2cm of norm] {SRP};
+\node[lbl, below=0.2cm of par]  {LSP};
+\node[lbl, below=0.2cm of ser]  {SRP};
+\end{tikzpicture}
+\caption{End-to-end pipeline. Each module's governing OOP principle is shown below it.}
+\end{figure}
+ 
+\noindent The JSON output schema for every detected number is:
+ 
+\begin{lstlisting}[language={}, numbers=none, caption={Required output schema (one entry per number)}]
+{
+  "original_text"    : "twenty-three August 2025",
+  "normalized_value" : "2025-08-23",
+  "category"         : "DATE"
+}
+\end{lstlisting}
+ 
+% ════════════════════════════════════════════════════════════════════════════
+\section{OOP Design Summary}
+% ════════════════════════════════════════════════════════════════════════════
+ 
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{l l l p{4.8cm}}
+\toprule
+\textbf{Module} & \textbf{Pattern} & \textbf{Principle} & \textbf{Benefit} \\
+\midrule
+\texttt{extractor.py}      & Factory Method & OCP & Add new file types without touching existing code \\
+\texttt{normalization.py}  & Decorator      & SRP & Each transformation is isolated and composable \\
+\texttt{parser.py}         & Polymorphism   & LSP & Regex, spaCy, and LLM engines are hot-swappable \\
+\texttt{serialize.py}      & Utility / Adapter & SRP & Output schema formatting is centralized \\
+\texttt{main.py}           & Service Layer  & Separation of Concerns & Pipeline orchestration is outside UI \\
+\texttt{app.py}            & Client / Facade & Separation of Concerns & UI delegates domain logic to services \\
+\bottomrule
+\end{tabular}
+\caption{Design patterns and OOP principles per module}
+\end{table}
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Libraries Used}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{l p{5.2cm} p{4.8cm}}
+\toprule
+\textbf{Library} & \textbf{Purpose} & \textbf{Used In} \\
+\midrule
+\texttt{streamlit} & Web interface for file upload, options, and result display & \texttt{app.py} \\
+\texttt{pymupdf (fitz)} & Native-text extraction from digital PDFs & \texttt{components/extractor.py} \\
+\texttt{pdf2image} & Converts scanned PDF pages to images for OCR & \texttt{components/extractor.py} \\
+\texttt{pytesseract} & OCR on scanned page images & \texttt{components/extractor.py} \\
+\texttt{spacy} & NLP-based entity detection and fallback classification & \texttt{components/parser.py} \\
+\texttt{openai} & LLM-backed classification for complex numeric contexts & \texttt{components/parser.py} \\
+\texttt{num2words} & Number-to-word/word-to-number normalization helpers & \texttt{components/normalization.py} \\
+\bottomrule
+\end{tabular}
+\caption{Primary external libraries used in the project pipeline}
+\end{table}
+ 
+% ════════════════════════════════════════════════════════════════════════════
+\section{Conclusion}
+% ════════════════════════════════════════════════════════════════════════════
+ 
+The PDF Numerical Data Extractor satisfies the requirements of Question~5
+while serving as a textbook demonstration of OOP design. The Factory Method
+in \texttt{extractor.py} cleanly handles both digital and scanned PDFs; the
+Decorator stack in \texttt{normalization.py} makes pre-processing steps
+modular and user-configurable; Polymorphism in \texttt{parser.py} allows the
+classification engine to be swapped between Regex, spaCy, and LLM with no
+downstream changes. The \texttt{ProcessingPipeline} service in
+\texttt{main.py} centralizes orchestration, and \texttt{serialize.py}
+encapsulates JSON output construction. The Streamlit front-end in
+\texttt{app.py} remains a thin client layer. Together, the modules
+demonstrate OCP, SRP, LSP, Encapsulation, and Separation of Concerns across a
+single, cohesive pipeline.
+ 
+% ─── Bibliography ───────────────────────────────────────────────────────────
+\begin{thebibliography}{9}
+\bibitem{spacy}
+Honnibal et al.\ (2020). \textit{spaCy: Industrial-strength NLP.}
+\url{https://spacy.io}
+\bibitem{tesseract}
+Smith, R.\ (2007). An overview of the Tesseract OCR engine.
+\textit{ICDAR 2007.} IEEE.
+\bibitem{pymupdf}
+Artifex Software. \textit{PyMuPDF Documentation.}
+\url{https://pymupdf.readthedocs.io}
+\bibitem{gamma}
+Gamma et al.\ (1994). \textit{Design Patterns: Elements of Reusable
+Object-Oriented Software.} Addison-Wesley.
+\end{thebibliography}
+ 
+\end{document}
