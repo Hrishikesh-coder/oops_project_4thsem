@@ -2,9 +2,7 @@ import streamlit as st
 import os
 import tempfile
 
-# Importing our new OOP Architectures
 from components.main import PipelineSettings, ProcessingPipeline
-from components.parser import LLMParserClassifier, RegexParserClassifier, SpacyParserClassifier
 from components.serialize import ResultSerializer
 
 # ==========================================
@@ -12,34 +10,15 @@ from components.serialize import ResultSerializer
 # ==========================================
 st.set_page_config(page_title="OOP Data Extractor", page_icon="📄", layout="wide")
 st.title("📄 OOP-Driven PDF Information Extractor")
-st.markdown("Showcasing Factory, Decorator, and Encapsulation Patterns.")
-
-@st.cache_resource
-def load_classifiers():
-    return {
-        "Regex Engine (Fast)": RegexParserClassifier(),
-        "spaCy NLP Engine": SpacyParserClassifier(),
-        "LLM Engine (Smart)": LLMParserClassifier()
-    }
-
-classifiers = load_classifiers()
+st.markdown("Features dynamic PDF Factory, Cascading Classifiers (Regex -> NLP -> LLM), and Normalization Decorators.")
 
 # ==========================================
 # 2. SIDEBAR CONTROLS
 # ==========================================
 st.sidebar.header("⚙️ Pipeline Settings")
-
-# Toggle for the Encapsulated Classifier
-selected_engine = st.sidebar.radio(
-    "Select Classification Engine:",
-    options=["Regex Engine (Fast)", "spaCy NLP Engine", "LLM Engine (Smart)"]
-)
-
-st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Normalization Decorators")
 st.sidebar.caption("Dynamically stack text processing behaviors.")
 
-# Toggles for the Decorator Pattern
 use_whitespace_remover = st.sidebar.checkbox("Remove Extra Whitespace", value=True)
 use_word_converter = st.sidebar.checkbox("Convert Words to Digits", value=True)
 use_punctuation_stripper = st.sidebar.checkbox("Strip Punctuation", value=False)
@@ -54,26 +33,27 @@ if uploaded_file is not None:
         temp_file.write(uploaded_file.getbuffer())
         temp_pdf_path = temp_file.name
     
-    st.info("File uploaded successfully. Initializing Pipeline...")
+    st.info("File uploaded successfully. Initializing Cascade Pipeline...")
 
     col1, col2 = st.columns(2)
 
-    with st.spinner('Running OOP Extraction Pipeline...'):
+    with st.spinner('Running Extraction & Classification...'):
         try:
-            active_classifier = classifiers[selected_engine]
             settings = PipelineSettings(
                 use_whitespace_remover=use_whitespace_remover,
                 use_word_converter=use_word_converter,
                 use_punctuation_stripper=use_punctuation_stripper,
             )
-            pipeline = ProcessingPipeline(active_classifier, settings)
+            # Pipeline now manages its own cascading engines
+            pipeline = ProcessingPipeline(settings)
             output = pipeline.run(temp_pdf_path)
+            
             final_data = ResultSerializer.to_records(output.classified_results)
 
             # --- Render Results in UI ---
             with col1:
                 st.subheader("Normalized Text Output")
-                st.caption(f"Processed by: {output.processor_name}")
+                st.caption(f"Extraction Engine Used: {output.processor_name}")
                 st.text_area("Pipeline Text", output.normalized_text, height=400)
 
             with col2:

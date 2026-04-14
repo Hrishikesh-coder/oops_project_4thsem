@@ -42,13 +42,11 @@ class PunctuationStripper(TextProcessorDecorator):
     def process(self, text: str) -> str:
         processed_text = self._wrapped.process(text)
         print(" -> Applying PunctuationStripper")
-        # Removes everything except alphanumerics, spaces, and hyphens (for dates/phones)
         return re.sub(r'[^\w\s-]', '', processed_text)
 
 class WordToDigitConverter(TextProcessorDecorator):
     def __init__(self, wrapped_processor: TextProcessor):
         super().__init__(wrapped_processor)
-        # Simplified map for demonstration. You can expand this or integrate 'word2number' here.
         self.word_map = {
             "one": "1", "two": "2", "three": "3", "four": "4", 
             "five": "5", "six": "6", "seven": "7", "eight": "8", 

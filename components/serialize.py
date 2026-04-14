@@ -1,7 +1,6 @@
 import json
-from dataclasses import asdict, is_dataclass
+from pydantic import BaseModel
 from typing import Any, Iterable, List
-
 
 class ResultSerializer:
     """Serializes classifier outputs into JSON-friendly records."""
@@ -10,14 +9,13 @@ class ResultSerializer:
     def to_records(results: Iterable[Any]) -> List[dict]:
         records: List[dict] = []
         for item in results:
-            if is_dataclass(item):
-                records.append(asdict(item))
+            if isinstance(item, BaseModel):
+                records.append(item.model_dump())
             elif isinstance(item, dict):
                 records.append(item)
             else:
                 raise TypeError(
-                    "Unsupported result type for serialization: "
-                    f"{type(item).__name__}"
+                    f"Unsupported result type for serialization: {type(item).__name__}"
                 )
         return records
 
