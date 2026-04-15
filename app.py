@@ -1,9 +1,13 @@
 import streamlit as st
 import os
 import tempfile
+from dotenv import load_dotenv
 
 from components.main import PipelineSettings, ProcessingPipeline
 from components.serialize import ResultSerializer
+
+# Load environment variables (Required for the LLM API Key)
+load_dotenv()
 
 # ==========================================
 # 1. PAGE CONFIGURATION & UI SETUP
@@ -16,9 +20,15 @@ st.markdown("Features dynamic PDF Factory, Cascading Classifiers (Regex -> NLP -
 # 2. SIDEBAR CONTROLS
 # ==========================================
 st.sidebar.header("⚙️ Pipeline Settings")
+
+st.sidebar.subheader("🤖 LLM Fallback (Llama 3.3)")
+st.sidebar.caption("Use LLM to reconstruct messy OCR/PDF extractions.")
+use_llm_extraction = st.sidebar.checkbox("Enable Extraction LLM Fallback", value=True)
+
+st.sidebar.divider()
+
 st.sidebar.subheader("🛠️ Normalization Decorators")
 st.sidebar.caption("Dynamically stack text processing behaviors.")
-
 use_whitespace_remover = st.sidebar.checkbox("Remove Extra Whitespace", value=True)
 use_word_converter = st.sidebar.checkbox("Convert Words to Digits", value=True)
 use_punctuation_stripper = st.sidebar.checkbox("Strip Punctuation", value=False)
@@ -43,6 +53,7 @@ if uploaded_file is not None:
                 use_whitespace_remover=use_whitespace_remover,
                 use_word_converter=use_word_converter,
                 use_punctuation_stripper=use_punctuation_stripper,
+                use_llm_extraction=use_llm_extraction  # Pass the UI toggle state to the pipeline
             )
             # Pipeline now manages its own cascading engines
             pipeline = ProcessingPipeline(settings)

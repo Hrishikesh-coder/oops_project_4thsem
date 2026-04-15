@@ -9,6 +9,8 @@ class PipelineSettings(BaseModel):
     use_whitespace_remover: bool = True
     use_word_converter: bool = True
     use_punctuation_stripper: bool = False
+    # Added setting to control the extraction-level LLM fallback
+    use_llm_extraction: bool = True 
 
 class PipelineOutput(BaseModel):
     processor_name: str
@@ -37,7 +39,11 @@ class ProcessingPipeline:
         return text_pipeline
 
     def run(self, pdf_path: str) -> PipelineOutput:
-        processor = DocumentProcessorFactory.get_processor(pdf_path)
+        # 1. Pass the extraction LLM setting to the Factory
+        processor = DocumentProcessorFactory.get_processor(
+            pdf_path, 
+            use_llm=self.settings.use_llm_extraction
+        )
         raw_text = processor.extract_text(pdf_path)
 
         text_pipeline = self._build_text_pipeline()
@@ -46,7 +52,7 @@ class ProcessingPipeline:
         # --- CASCADE CLASSIFICATION (Chain of Responsibility) ---
         results: List[ClassificationResult] = []
         
-        # 1. Run Fast Deterministic Parsers
+        # Run Fast Deterministic Parsers
         results.extend(self.regex_engine.classify(normalized_text))
         results.extend(self.spacy_engine.classify(normalized_text))
 
@@ -65,8 +71,14 @@ class ProcessingPipeline:
             llm_results = self.llm_engine.classify(normalized_text)
             unique_results.extend(llm_results)
 
+        # 3. Safely resolve actual processor name if wrapped by the LLM Decorator
+        # Since the decorator wraps the base class, processor.__class__.__name__ would just return "LLMFallbackDecorator"
+        processor_class_name = getattr(processor, "base_processor", processor).__class__.__name__
+        if self.settings.use_llm_extraction:
+            processor_class_name += " (with LLM Fallback)"
+
         return PipelineOutput(
-            processor_name=processor.__class__.__name__,
+            processor_name=processor_class_name,
             raw_text=raw_text,
             normalized_text=normalized_text,
             classified_results=unique_results,

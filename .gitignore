@@ -7,7 +7,7 @@ __pycache__/
 .venv/
 venv/
 env/
-
+.env
 # Build/distribution
 build/
 dist/

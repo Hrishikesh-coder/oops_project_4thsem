@@ -5,6 +5,8 @@ pytesseract==0.3.13
 pdf2image==1.17.0
 Pillow==12.2.0
 spacy==3.8.14
+openai>=1.0.0
+
 
 # Install spaCy model from official wheel URL (package name may be unavailable on some indexes).
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

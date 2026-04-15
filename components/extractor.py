@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 import fitz  # PyMuPDF
 import pytesseract
@@ -5,6 +6,13 @@ from pdf2image import convert_from_path
 from shutil import which
 from pytesseract.pytesseract import TesseractNotFoundError
 from concurrent.futures import ProcessPoolExecutor
+from dotenv import load_dotenv
+
+# Import the LLM fallback logic we created earlier
+from .llm_fallback import LLMExtractionFallback
+
+# Load environment variables for the API Key
+load_dotenv()
 
 # ==========================================
 # INTERFACE (The Contract)
@@ -58,18 +66,69 @@ class ScannedPDFProcessor(IDocumentProcessor):
         except Exception as e:
             raise RuntimeError(f"OCR Error (Is Poppler/Tesseract installed?): {e}")
 
+
+# ==========================================
+# DECORATOR (The LLM Fallback)
+# ==========================================
+class LLMFallbackDecorator(IDocumentProcessor):
+    """Wraps any IDocumentProcessor with a Llama 3.3 evaluation step."""
+    
+    def __init__(self, base_processor: IDocumentProcessor):
+        self.base_processor = base_processor
+        
+        # Initialize the LLM Agent
+        api_key = os.getenv("LLAMA_API_KEY")
+        base_url = os.getenv("LLAMA_BASE_URL", "https://api.groq.com/openai/v1")
+        self.llm_agent = LLMExtractionFallback(api_key=api_key, base_url=base_url)
+
+    def _is_extraction_poor(self, text: str) -> bool:
+        """Heuristic to determine if the extracted text needs LLM cleanup."""
+        if not text or len(text.strip()) == 0:
+            return True
+            
+        # Check for high density of non-alphanumeric characters (common in bad OCR/PDF extraction)
+        text_len = max(1, len(text))
+        garbage_ratio = sum(1 for char in text if not char.isalnum() and not char.isspace()) / text_len
+        
+        return garbage_ratio > 0.25 # Trigger LLM if > 25% of text is special characters
+
+    def extract_text(self, file_path: str) -> str:
+        # 1. Run the standard extraction (Digital or Scanned)
+        raw_text = self.base_processor.extract_text(file_path)
+
+        # 2. Evaluate the output
+        if self._is_extraction_poor(raw_text):
+            print("[LLM Fallback] Poor extraction quality detected. Triggering Llama 3.3...")
+            cleaned_text = self.llm_agent.extract_and_clean(raw_text)
+            
+            if cleaned_text:
+                return cleaned_text
+                
+        return raw_text
+
 # ==========================================
 # THE FACTORY
 # ==========================================
 class DocumentProcessorFactory:
     @staticmethod
-    def get_processor(file_path: str) -> IDocumentProcessor:
+    def get_processor(file_path: str, use_llm: bool = True) -> IDocumentProcessor:
+        """
+        Determines the best extraction engine.
+        Now includes an option to wrap the engine in the LLM fallback decorator.
+        """
         try:
             doc = fitz.open(file_path)
             sample_text = str(doc[0].get_text("text")) if len(doc) > 0 else ""
+            
             if len(sample_text.strip()) < 50:
-                return ScannedPDFProcessor()
+                base_processor = ScannedPDFProcessor()
             else:
-                return DigitalPDFProcessor()
+                base_processor = DigitalPDFProcessor()
         except Exception:
-            return ScannedPDFProcessor()
+            base_processor = ScannedPDFProcessor()
+
+        # Wrap the chosen processor with the LLM Fallback if requested
+        if use_llm:
+            return LLMFallbackDecorator(base_processor)
+            
+        return base_processor
