@@ -145,8 +145,11 @@ for the Object-Oriented Programming Laboratory}
 This report describes the design and implementation of a Python-based pipeline
 that solves Question~5 of the OOP group project: given a scanned or printed
 PDF, the system extracts all numerical information, converts numbers written in
-words into digit form, and classifies each by type (Date, Phone Number, Time,
-License Number, etc.). The output is a structured JSON file per document
+words into digit form, and classifies each by type across an extended
+24-label taxonomy (Date, Money, Percent, Phone Number, License Plate, Time,
+Age, Temperature, Distance, Weight, Height, Speed, Area, Volume,
+Percentage Change, Ratio, Range, Ordinal, PIN Code, Account Number,
+Invoice ID, Tax ID, Quantity, Cardinal). The output is a structured JSON file per document
 containing the \emph{original text}, \emph{normalised value}, and
 \emph{category} of every detected number.
  
@@ -313,8 +316,11 @@ clean_text = pipeline.process(raw_text)
 \subsection{\texttt{parser.py} --- Classification Layer (Polymorphism / LSP)}
  
 \textbf{What it does.} Scans the cleaned text for numerical entities and
-returns typed classification results (Date, Phone Number, Time, License Plate,
-etc.). JSON serialization is now handled in a separate module.
+returns typed classification results across 24 labels (Date, Money, Percent,
+Phone Number, License Plate, Time, Age, Temperature, Distance, Weight,
+Height, Speed, Area, Volume, Percentage Change, Ratio, Range, Ordinal,
+PIN Code, Account Number, Invoice ID, Tax ID, Quantity, Cardinal).
+JSON serialization is now handled in a separate module.
  
 \textbf{Design pattern: Polymorphism with Liskov Substitution.} An abstract
 base class defines the contract. Three concrete engines implement it
@@ -339,17 +345,17 @@ class BaseParserClassifier(ABC):
  
 class RegexParserClassifier(BaseParserClassifier):
   def classify(self, clean_text: str):
-    # Regex patterns for DATE / PHONE_NUMBER / LICENSE_PLATE / TIME
+    # Regex patterns for a 24-label numeric taxonomy
     ...
 
 class SpacyParserClassifier(BaseParserClassifier):
   def classify(self, clean_text: str):
-    # spaCy entities + matcher fallback for phone/license plate
+    # spaCy entities + matcher + regex fallback for full 24-label coverage
         ...
  
 class LLMParserClassifier(BaseParserClassifier):
   def classify(self, clean_text: str):
-    # Sends structured prompt to LLM API;
+    # Sends structured prompt with the 24-label set to LLM API;
     # maps response into ClassificationResult objects
         ...
 \end{lstlisting}

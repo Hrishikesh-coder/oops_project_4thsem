@@ -25,8 +25,7 @@ st.sidebar.subheader("🤖 LLM Fallback (Llama 3.3)")
 st.sidebar.caption("Use LLM to reconstruct messy OCR/PDF extractions.")
 use_llm_extraction = st.sidebar.checkbox("Enable Extraction LLM Fallback", value=True)
 
-st.sidebar.divider()
-
+st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Normalization Decorators")
 st.sidebar.caption("Dynamically stack text processing behaviors.")
 use_whitespace_remover = st.sidebar.checkbox("Remove Extra Whitespace", value=True)

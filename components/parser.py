@@ -4,6 +4,35 @@ import json
 import re
 from typing import List
 
+
+SUPPORTED_CATEGORY_LABELS = [
+    "DATE",
+    "MONEY",
+    "PERCENT",
+    "PHONE_NUMBER",
+    "LICENSE_PLATE",
+    "TIME",
+    "AGE",
+    "TEMPERATURE",
+    "DISTANCE",
+    "WEIGHT",
+    "HEIGHT",
+    "SPEED",
+    "AREA",
+    "VOLUME",
+    "PERCENTAGE_CHANGE",
+    "RATIO",
+    "RANGE",
+    "ORDINAL",
+    "PIN_CODE",
+    "ACCOUNT_NUMBER",
+    "INVOICE_ID",
+    "TAX_ID",
+    "LOCATION_DATA",
+    "QUANTITY",
+    "CARDINAL",
+]
+
 # ==========================================
 # 1. THE ENCAPSULATED INTERFACE
 # ==========================================
@@ -17,6 +46,11 @@ class BaseParserClassifier(ABC):
     """Classifier contract. Implementations should only classify text."""
     @abstractmethod
     def classify(self, text: str) -> List[ClassificationResult]:
+        pass
+
+    @abstractmethod
+    def supported_categories(self) -> List[str]:
+        """Returns the category labels this classifier can emit."""
         pass
 
 
@@ -50,14 +84,10 @@ class RegexParserClassifier(BaseParserClassifier):
 
             # --- DATETIME & CONTACT ---
             "DATE": r'\b(?:\d{1,2}[-/thstnd\s]+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ \.,]+\d{1,2}[-/ \.,]+\d{2,4}\b|\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b',
-            # Matches currency values with common symbols and optional magnitude words
-            "MONEY": r'\b(?:USD|INR|EUR|GBP|Rs\.?|\$)\s?\d+(?:,\d{3})*(?:\.\d+)?(?:\s?(?:thousand|million|billion|lakh|crore))?\b|\b\d+(?:,\d{3})*(?:\.\d+)?\s?(?:USD|INR|EUR|GBP|dollars?|rupees?|euros?|pounds?)\b',
             # Matches percentage values
             "PERCENT": r'\b[-+]?\d+(?:\.\d+)?\s?%\b|\b[-+]?\d+(?:\.\d+)?\s?(?:percent|percentage)\b',
             # Matches common phone formats
             "PHONE_NUMBER": r'\+?\d{1,3}[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',
-            # Matches standard Indian/International license plate formats (e.g., WB-02-AD-1234)
-            "LICENSE_PLATE": r'\b[A-Z]{2}[-.\s]?\d{1,2}[-.\s]?[A-Z]{1,2}[-.\s]?\d{3,4}\b',
             # Matches standard time
             "TIME": r'\b\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM|am|pm)?\b',
             # Matches age expressions
@@ -84,14 +114,8 @@ class RegexParserClassifier(BaseParserClassifier):
             "RANGE": r'\b\d+(?:\.\d+)?\s?(?:-|to)\s?\d+(?:\.\d+)?\b',
             # Matches ordinal numbers
             "ORDINAL": r'\b\d{1,3}(?:st|nd|rd|th)\b',
-            # Matches Indian PIN / common postal code formats
-            "PIN_CODE": r'\b\d{6}\b|\b\d{5}(?:-\d{4})?\b',
-            # Matches account-like identifiers
-            "ACCOUNT_NUMBER": r'\b(?:A/C|AC|Account\s?(?:No\.?|Number)?)\s*[:#-]?\s*\d{8,18}\b',
-            # Matches common invoice/order IDs
-            "INVOICE_ID": r'\b(?:INV|INVOICE|ORD|ORDER)[-_/]?[A-Z0-9]{3,}\b',
-            # Matches PAN and GSTIN style tax identifiers
-            "TAX_ID": r'\b[A-Z]{5}\d{4}[A-Z]\b|\b\d{2}[A-Z]{5}\d{4}[A-Z]\d[Zz][A-Z0-9]\b',
+            # Matches basic place phrases like "Kolkata, West Bengal" or "Howrah District"
+            "LOCATION_DATA": r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s*,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\b|\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s+(?:City|District|State|County|Province|Village|Town)\b',
             # Matches standalone quantity-like numerals with optional thousand separators
             "QUANTITY": r'\b\d+(?:,\d{3})*(?:\.\d+)?\b',
             # Matches plain cardinal integers and decimals
@@ -117,6 +141,9 @@ class RegexParserClassifier(BaseParserClassifier):
                     )
                 )
         return results
+
+    def supported_categories(self) -> List[str]:
+        return list(self.patterns.keys())
 
 
 class SpacyParserClassifier(BaseParserClassifier):
@@ -156,11 +183,8 @@ class SpacyParserClassifier(BaseParserClassifier):
             "PERCENT": "PERCENTAGE",
             "QUANTITY": "MEASUREMENT",
             "CARDINAL": "CARDINAL",
-            "ORG": "ORGANIZATION_ID",
             "GPE": "LOCATION_DATA",
             "LOC": "LOCATION_DATA",
-            "FAC": "FACILITY_NAME",
-            "LAW": "LEGAL_REFERENCE"
         }
 
         # Reuse full regex category set so spaCy path covers all project labels.
@@ -215,14 +239,30 @@ class SpacyParserClassifier(BaseParserClassifier):
 
         return results
 
+    def supported_categories(self) -> List[str]:
+        return list(self.regex_patterns.keys())
+
 
 # ==========================================
 # 3. PATH B: LLM IMPLEMENTATION (Fallback)
 # ==========================================
 class LLMParserClassifier(BaseParserClassifier):
     def classify(self, text: str) -> List[ClassificationResult]:
-        # [!] In production, hook this up to the OpenAI / Anthropic / Gemini SDK
-        print("Low confidence detected. Sending task to LLM API...")
+        prompt = f"""
+        Task: Extract, convert, and classify numerical data from the following text.
+        
+        Rules:
+        1. Parse: Convert any numbers written in natural language words to standard digits.
+        2. Classify: Identify the type of data (e.g., DATE, PHONE_NUMBER, LICENSE_PLATE, TIME, or QUANTITY).
+        
+        Return ONLY a valid JSON array of dictionaries with the exact keys: 
+        "original_text", "normalized_value", "category".
+        
+        Text to process:
+        {text}
+        """
+        
+        print("Sending classification task to LLM...")
         
         # Mock response to simulate an LLM reading the text
         mock_api_response = '''
@@ -248,3 +288,6 @@ class LLMParserClassifier(BaseParserClassifier):
         except json.JSONDecodeError:
             print("LLM returned invalid JSON.")
             return []
+
+    def supported_categories(self) -> List[str]:
+        return list(SUPPORTED_CATEGORY_LABELS)
