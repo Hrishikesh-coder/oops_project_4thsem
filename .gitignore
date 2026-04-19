@@ -23,4 +23,13 @@ dist/
 
 # Streamlit local settings
 .streamlit/
+
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# Data and temporary files
+*.pdf
+extracted_*.json
+temp_*.pdf

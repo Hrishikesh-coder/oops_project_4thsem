@@ -2,13 +2,18 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
 import json
 import re
+import os
 from typing import List
+from openai import OpenAI
 
 SUPPORTED_CATEGORY_LABELS = [
     "DATE",
+    "YEAR",
     "MONEY",
     "PERCENT",
     "PHONE_NUMBER",
+    "EMAIL",
+    "URL",
     "LICENSE_PLATE",
     "TIME",
     "AGE",
@@ -69,17 +74,18 @@ class RegexParserClassifier(BaseParserClassifier):
         # Pure Regex Dictionary for classification
         # ORDER MATTERS: Most specific/priority categories MUST be at the top.
         self.patterns = {
+            # --- CONTACT & WEB ---
+            "EMAIL": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+            "URL": r'\bhttps?://[^\s/$.?#].[^\s]*\b',
+            "PHONE_NUMBER": r'\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b',
+
             # --- IDENTIFIERS & REGIONAL CODES ---
             "TAX_ID": r'\b[A-Z]{5}\d{4}[A-Z]\b|\b\d{2}[A-Z]{5}\d{4}[A-Z]\d[Zz][A-Z0-9]\b',
             "LICENSE_PLATE": r'\b[A-Z]{2}[-.\s]?\d{1,2}[-.\s]?[A-Z]{1,2}[-.\s]?\d{3,4}\b',
-            "PIN_CODE": r'\b\d{6}\b|\b\d{5}(?:-\d{4})?\b',
-            # Fixed: Put Roll Number before Aadhaar to prioritize standard 10-12 digit strings
-            "ACADEMIC_ROLL_NUMBER": r'\b\d{10,12}\b',
-            # Fixed: Force space or hyphen delimiter to prevent swallowing contiguous 12-digit roll numbers
+            "IFSC_CODE": r'\b[A-Z]{4}0[A-Z0-9]{6}\b',
             "AADHAAR_NUMBER": r'\b\d{4}[-\s]\d{4}[-\s]\d{4}\b',
             
             # --- FINANCIAL & TRADING ---
-            "IFSC_CODE": r'\b[A-Z]{4}0[A-Z0-9]{6}\b',
             "ACCOUNT_NUMBER": r'\b(?:A/C|AC|Account\s?(?:No\.?|Number)?)\s*[:#-]?\s*\d{8,18}\b',
             "CREDIT_CARD": r'\b(?:\d[ -]*?){13,16}\b|\b\*{4}[\s-]?\*{4}[\s-]?\*{4}[\s-]?\d{4}\b',
             "STOCK_TICKER": r'\b(?:NYSE|NASDAQ|NSE|BSE):\s?[A-Z]{1,10}\b|\$[A-Z]{1,5}\b',
@@ -93,23 +99,31 @@ class RegexParserClassifier(BaseParserClassifier):
 
             # --- DATETIME & CONTACT ---
             "DATE": r'\b(?:\d{1,2}[-/thstnd\s]+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ \.,]+\d{1,2}[-/ \.,]+\d{2,4}\b|\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b',
-            "PERCENT": r'\b[-+]?\d+(?:\.\d+)?\s?%\b|\b[-+]?\d+(?:\.\d+)?\s?(?:percent|percentage)\b',
-            "PHONE_NUMBER": r'\+?\d{1,3}[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',
+            "YEAR": r'\b(19|20)\d{2}\b',
             "TIME": r'\b\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM|am|pm)?\b',
             "AGE": r'\b(?:age\s*[:=-]?\s*)?\d{1,3}\s?(?:years?\s?old|yrs?\.?\b)\b',
             "TEMPERATURE": r'\b[-+]?\d+(?:\.\d+)?\s?°?\s?(?:C|F|K|celsius|fahrenheit|kelvin)\b',
+            "PERCENT": r'\b[-+]?\d+(?:\.\d+)?\s?%\b|\b[-+]?\d+(?:\.\d+)?\s?(?:percent|percentage)\b',
+            "PERCENTAGE_CHANGE": r'\b(?:up|down|increased\sby|decreased\sby|rise\sof|drop\sof)\s+\d+(?:\.\d+)?\s?%\b|\b[-+]\d+(?:\.\d+)?\s?%\b',
+            
+            # --- MEASUREMENTS ---
             "DISTANCE": r'\b\d+(?:\.\d+)?\s?(?:km|kilometers?|m|meters?|mi|miles?|ft|feet|in|inches|cm|mm)\b',
             "WEIGHT": r'\b\d+(?:\.\d+)?\s?(?:kg|kilograms?|g|grams?|mg|lb|lbs|pounds?)\b',
             "HEIGHT": r'\b\d\s?\'\s?\d{1,2}\s?\"\b|\b\d+(?:\.\d+)?\s?(?:cm|m|ft|feet|in|inches)\s?(?:tall)?\b',
             "SPEED": r'\b\d+(?:\.\d+)?\s?(?:km/h|kph|mph|m/s)\b',
             "AREA": r'\b\d+(?:\.\d+)?\s?(?:sq\.?\s?(?:ft|feet|m|km)|square\s?(?:feet|meters?|kilometers?)|sq\s?m|sq\s?km|sq\s?ft|acres?|hectares?)\b',
             "VOLUME": r'\b\d+(?:\.\d+)?\s?(?:l|liters?|litres?|ml|milliliters?|millilitres?|gallons?)\b',
-            "PERCENTAGE_CHANGE": r'\b(?:up|down|increased\sby|decreased\sby|rise\sof|drop\sof)\s+\d+(?:\.\d+)?\s?%\b|\b[-+]\d+(?:\.\d+)?\s?%\b',
+            
+            # --- MISC ---
             "RATIO": r'\b\d+(?:\.\d+)?\s?:\s?\d+(?:\.\d+)?\b',
             "RANGE": r'\b\d+(?:\.\d+)?\s?(?:-|to)\s?\d+(?:\.\d+)?\b',
             "ORDINAL": r'\b\d{1,3}(?:st|nd|rd|th)\b',
-            "LOCATION_DATA": r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s*,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\b|\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s+(?:City|District|State|County|Province|Village|Town)\b',
+            "LOCATION_DATA": r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s*,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s+(?:City|District|State|County|Province|Village|Town)\b|\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s+(?:City|District|State|County|Province|Village|Town)\b',
+            
+            # --- FALLBACKS (Lowest Priority) ---
+            "ACADEMIC_ROLL_NUMBER": r'\b(?:Roll\s?(?:No\.?|Number)?|UID|ID)\s*[:#-]?\s*\d{8,12}\b',
             "QUANTITY": r'\b\d+(?:,\d{3})*(?:\.\d+)?\b',
+            "PIN_CODE": r'\b\d{6}\b',
             "CARDINAL": r'\b[-+]?\d+(?:\.\d+)?\b',
         }
 
@@ -181,15 +195,17 @@ class SpacyParserClassifier(BaseParserClassifier):
         self.entity_label_map = {
             "DATE": "DATE",
             "TIME": "TIME",
-            "MONEY": "CURRENCY",
-            "PERCENT": "PERCENTAGE",
-            "QUANTITY": "MEASUREMENT",
+            "MONEY": "MONEY",
+            "PERCENT": "PERCENT",
+            "QUANTITY": "QUANTITY",
             "CARDINAL": "CARDINAL",
             "GPE": "LOCATION_DATA",
             "LOC": "LOCATION_DATA",
         }
 
         self.regex_patterns = RegexParserClassifier().patterns
+        # Common tech terms misclassified by spaCy as GPE/LOC
+        self.tech_whitelist = {"Nextjs", "React", "FastAPI", "Python", "Java", "TypeScript", "JavaScript", "GeoJSON", "GitHub", "WebGIS", "Leaflet"}
 
     def classify(self, text: str) -> List[ClassificationResult]:
         doc = self.nlp(text)
@@ -198,10 +214,19 @@ class SpacyParserClassifier(BaseParserClassifier):
 
         # 1. Check Standard NLP Entities
         for ent in doc.ents:
+            if ent.text.strip() in self.tech_whitelist:
+                continue
+
             mapped_category = self.entity_label_map.get(ent.label_)
             if not mapped_category:
                 continue
+            
             value = ent.text.strip()
+            # Basic noise filter for location data
+            if mapped_category == "LOCATION_DATA" and (len(value) < 3 or any(c.islower() for c in value) and any(c.isupper() for c in value[1:])):
+                # If it looks like CamelCase or is too short, it's likely not a location
+                continue
+
             results.append(
                 ClassificationResult(
                     original_text=value,
@@ -257,7 +282,19 @@ class SpacyParserClassifier(BaseParserClassifier):
 # 3. PATH B: LLM IMPLEMENTATION (Fallback)
 # ==========================================
 class LLMParserClassifier(BaseParserClassifier):
+    def __init__(self):
+        self.api_key = os.getenv("LLAMA_API_KEY")
+        self.base_url = os.getenv("LLAMA_BASE_URL", "https://api.groq.com/openai/v1")
+        self.client = None
+        if self.api_key:
+            self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.model = "llama-3.3-70b-versatile"
+
     def classify(self, text: str) -> List[ClassificationResult]:
+        if not self.client:
+            print("[LLM Classifier] No API Key found. Skipping...")
+            return []
+
         # Fixed: Completely overhauled prompt to force NER extraction rather than text summarization/cleaning.
         prompt = f"""
         You are a strict Named Entity Recognition (NER) system.
@@ -269,39 +306,52 @@ class LLMParserClassifier(BaseParserClassifier):
         3. Classify each extracted string into one of these strict categories: {SUPPORTED_CATEGORY_LABELS}
         
         Return ONLY a valid JSON array of dictionaries with the exact keys: 
-        "original_text", "normalized_value", "category". Do not include markdown code blocks.
+        "original_text", "normalized_value", "category". Do not include markdown code blocks or any other text.
         
         Text to process:
         {text}
         """
         
-        print("Sending classification task to LLM...")
-        
-        # Mock response to simulate an LLM reading the text. 
-        # In production, replace this with your actual LLM API call.
-        mock_api_response = '''
-        [
-            {
-                "original_text": "22", 
-                "normalized_value": "22", 
-                "category": "QUANTITY"
-            }
-        ]
-        '''
-        
         try:
-            loaded = json.loads(mock_api_response)
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a professional data extraction assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"} if "openai" in self.base_url.lower() else None
+            )
+            
+            content = response.choices[0].message.content.strip()
+            # Clean up potential markdown blocks if LLM ignored instructions
+            if content.startswith("```json"):
+                content = content.replace("```json", "").replace("```", "").strip()
+            elif content.startswith("```"):
+                content = content.replace("```", "").strip()
+
+            # Sometimes LLM wraps the array in a "results" or "entities" key
+            loaded = json.loads(content)
+            if isinstance(loaded, dict):
+                # Try to find the list in common keys
+                for key in ["results", "entities", "data"]:
+                    if key in loaded and isinstance(loaded[key], list):
+                        loaded = loaded[key]
+                        break
+                if isinstance(loaded, dict): # Still a dict? 
+                    loaded = [loaded] # Maybe it's just one object
+
             return [
                 ClassificationResult(
                     original_text=item.get("original_text", ""),
                     normalized_value=item.get("normalized_value", ""),
                     category=item.get("category", "UNKNOWN"),
                 )
-                for item in loaded
+                for item in loaded if isinstance(item, dict)
             ]
-        except json.JSONDecodeError:
-            print("LLM returned invalid JSON.")
+        except Exception as e:
+            print(f"[LLM Classifier Error] Failed: {e}")
             return []
 
     def supported_categories(self) -> List[str]:
-        return list(SUPPORTED_CATEGORY_LABELS)
+        return SUPPORTED_CATEGORY_LABELS

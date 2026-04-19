@@ -1,5 +1,6 @@
 # Pinned versions for reproducible installs across users/devices.
 streamlit==1.56.0
+python-dotenv==1.0.1
 PyMuPDF==1.27.1
 pytesseract==0.3.13
 pdf2image==1.17.0
