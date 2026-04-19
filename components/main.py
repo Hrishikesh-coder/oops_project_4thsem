@@ -11,7 +11,9 @@ class PipelineSettings(BaseModel):
     use_punctuation_stripper: bool = False
     # Added setting to control the extraction-level LLM fallback
     use_llm_extraction: bool = True 
-
+    # New: Control for classification-level LLM
+    auto_llm_fallback: bool = True
+    force_llm_classification: bool = False
 class PipelineOutput(BaseModel):
     processor_name: str
     raw_text: str
@@ -66,10 +68,35 @@ class ProcessingPipeline:
 
         # 2. Check Confidence / Fallback Trigger
         has_numbers = any(char.isdigit() for char in normalized_text)
-        if has_numbers and not unique_results:
-            # Fallback to LLM if text clearly has numbers but fast engines missed them
+        
+        # Heuristic for "bad performance"
+        # 1. Manual Force (User clicked the button)
+        # 2. Automatic Fallback (No results found despite numbers being present)
+        # 3. Automatic Fallback (Low density of extracted entities vs expected)
+        
+        should_run_llm = self.settings.force_llm_classification
+        
+        if not should_run_llm and self.settings.auto_llm_fallback:
+            # If we found nothing but there are digits
+            if has_numbers and not unique_results:
+                should_run_llm = True
+            
+            # If result count is suspiciously low (e.g., less than 1 entity per 100 chars of numeric text)
+            # This is a very rough heuristic for "bad performance"
+            num_digits = sum(1 for c in normalized_text if c.isdigit())
+            if has_numbers and len(unique_results) < (num_digits / 15): # Heuristic: expect at least 1 entity per 15 digits
+                should_run_llm = True
+
+        if should_run_llm:
+            # Fallback to LLM
             llm_results = self.llm_engine.classify(normalized_text)
-            unique_results.extend(llm_results)
+            
+            # Merge results, prioritizing LLM results for the same text span if needed
+            # For simplicity, we just add unique LLM results
+            for lr in llm_results:
+                if lr.original_text not in seen:
+                    seen.add(lr.original_text)
+                    unique_results.append(lr)
 
         # 3. Safely resolve actual processor name if wrapped by the LLM Decorator
         # Since the decorator wraps the base class, processor.__class__.__name__ would just return "LLMFallbackDecorator"
