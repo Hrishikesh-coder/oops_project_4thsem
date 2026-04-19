@@ -7,7 +7,6 @@ __pycache__/
 .venv/
 venv/
 env/
-.env
 # Build/distribution
 build/
 dist/
@@ -24,3 +23,4 @@ dist/
 
 # Streamlit local settings
 .streamlit/
+.env
