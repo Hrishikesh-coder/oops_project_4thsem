@@ -1,0 +1,40 @@
+# ── Base image ────────────────────────────────────────────────────────────────
+FROM python:3.11-slim
+
+LABEL description="OOPS_PROJECT – PDF Chatbot with Llama 3.3 (Streamlit)"
+LABEL version="1.0.0"
+
+# Environment
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    OLLAMA_URL=http://ollama:11434 \
+    MODEL_NAME=llama3.3
+
+WORKDIR /app
+
+# System deps
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project files
+COPY components/ ./components/
+COPY app.py .
+
+# .env is mounted at runtime via docker-compose, but copy example as fallback
+COPY .env.example .env.example
+
+EXPOSE 8501
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+CMD ["streamlit", "run", "app.py", \
+     "--server.port=8501", \
+     "--server.address=0.0.0.0", \
+     "--server.headless=true"]

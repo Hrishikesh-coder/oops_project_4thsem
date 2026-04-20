@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+
+  # ── Ollama (Llama 3.3 backend) ─────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama   # model weights persist across restarts
+    restart: unless-stopped
+    # ── Uncomment for NVIDIA GPU support ──
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ── Pull llama3.3 once on first run ───────────────────────────────────────
+  model-init:
+    image: ollama/ollama:latest
+    container_name: model-init
+    depends_on:
+      - ollama
+    entrypoint: >
+      sh -c "sleep 10 && ollama pull llama3.3 && echo 'llama3.3 ready!'"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"
+
+  # ── OOPS_PROJECT Streamlit app ─────────────────────────────────────────────
+  pdf-chatbot:
+    build:
+      context: .          # expects Dockerfile in the project root
+      dockerfile: Dockerfile
+    container_name: oops-pdf-chatbot
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env              # loads your real .env automatically
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - MODEL_NAME=llama3.3
+    depends_on:
+      - ollama
+    volumes:
+      - ./components:/app/components   # live-reload components during dev
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
