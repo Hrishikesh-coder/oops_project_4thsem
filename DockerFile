@@ -27,7 +27,7 @@ COPY components/ ./components/
 COPY app.py .
 
 # .env is mounted at runtime via docker-compose, but copy example as fallback
-COPY .env.example .env.example
+COPY .env .env
 
 EXPOSE 8501
 
